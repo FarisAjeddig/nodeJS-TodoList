@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Évaluation Openclassrooms</title>
+    </head>
+
+    <body>
+        <h1>TODO List partagé en temps réel</h1>
+
+        <p>
+          <input type="text" id="newMessage" name="newMessage" value="" placeholder="Entrez votre tâche ici" />
+          <input type="button" value="Envoyer la tâche" id="poke" />
+        </p>
+
+        <div id="list">
+        </div>
+
+
+        <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+
+          // Comme je n'ai pas de formulaire à proprement parler, je detecte l'entrée de la touche entrée dans le champ texte.
+          $('#newMessage').keyup(function(e) {
+            if(e.keyCode == 13) { // KeyCode de la touche entrée
+              $("#poke").click();// Et je simule alors le clic sur le bouton.
+            }
+          });
+
+            var socket = io.connect('http://localhost:8080');
+
+            // On demande le pseudo au visiteur et on l'envoie au serveur
+            var pseudo = prompt('Quel est votre pseudo ?');
+            socket.emit('nouveau_client', pseudo);
+
+            var n=0;
+            // On récupére le tableau de tâche existant et on affiche la liste
+            socket.on('tableau', function(tache) {
+              var i;
+              for (i = 0; i < tache.length; i++) {
+                if (tache[i] != ''){
+                  $("#list").append('<p id="'+i+'"><a href="#" class="delete">✘</a> &nbsp;' + tache[i] + '</p>');
+                }
+                // On ajoute l'événement qui permet de supprimer un élément.
+                $('.delete').off('click');
+                $('.delete').click(function(){
+                  var id = $(this).parent().attr('id');
+                  socket.emit('delete', id);
+                  $(this).parent().remove();
+                })
+              }
+              // C'est notre compteur de tâche
+              n = tache.length;
+            })
+
+            // Lorsqu'on clique sur le bouton, on envoie un "message" au serveur
+            $('#poke').click(function () {
+                var tache = $("#newMessage").val();
+                if (tache != ''){
+                  // On ajoute la nouvelle tâche pour l'utilisateur courant
+                  $("#list").append('<p id="'+n+'"><a href="#" class="delete">✘</a> &nbsp;' + tache + '</p>');
+                  socket.emit('tache', tache);
+                  $("#newMessage").val(''); // On réinitialise le champ texte à vide
+                  n = n+1;
+
+                  // On enlève les événements existants et on en remet un sur tous les bouton "supprimer".
+                  $('.delete').off('click');
+                  $('.delete').click(function(){
+                    var id = $(this).parent().attr('id');
+                    socket.emit('delete', id);
+                    $(this).parent().remove();
+                  })
+                }
+            })
+
+            // Lorsqu'une nouvelle tâche arrive.
+            socket.on('tache', function(tache){
+              $("#list").append('<p id="'+n+'"><a href="#" class="delete">✘</a> &nbsp;' + tache + '</p>');
+              n = n+1;
+
+              // On enlève les événements existants et on en remet un sur tous les bouton "supprimer".
+              $('.delete').off('click');
+              $('.delete').click(function(){
+                var id = $(this).parent().attr('id');
+                socket.emit('delete', id);
+                $(this).parent().remove();
+              })
+            })
+
+            // Lorsqu'une tâche est supprimée par un autre, on la supprime ici.
+            socket.on('delete', function(id){
+              $("#"+id).remove();
+            })
+        </script>
+    </body>
+</html>
